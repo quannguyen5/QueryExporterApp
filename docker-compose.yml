@@ -1,0 +1,73 @@
+version: "3.8"
+services:
+  mysqlserver:
+    image: mysql:8.0
+    container_name: mysqlserver
+    ports:
+      - "3307:3306"
+    environment:  
+      MYSQL_ROOT_PASSWORD: hadam1011
+      MYSQL_DATABASE: employee
+      # - MYSQL_ALLOW_EMPTY_PASSWORD=true
+      # - MYSQL_PASSWORD=hadam1011
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - mysql_config:/etc/mysql/conf.d
+      - ./springboot-backend/src/main/resources/import.sql:/docker-entrypoint-initdb.d/import.sql
+    networks:
+      - backend
+  springboot-backend:
+    build:
+      context: springboot-backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: "8081"
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqlserver:3306/employee
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: hadam1011
+    depends_on:
+      mysqlserver:
+        condition: service_completed_successfully
+    networks: # Networks to join (Services on the same network can communicate with each other using their name)
+      - backend
+      - frontend
+  react-frontend:
+    build:
+      context: react-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    container_name: frontend
+    depends_on:
+      - springboot-backend
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost:8081/api/v1
+      - REACT_APP_ADMIN_API_BASE_URL=http://localhost:8081/api/admin
+      - REACT_APP_API_AUTHENTICATE_BASE_URL=http://localhost:8081/api/auth
+    #      - OTEL_TRACES_EXPORTER=logging
+    #      - OTEL_METRICS_EXPORTER=logging
+    networks: # Networks to join (Services on the same network can communicate with each other using their name)
+      - frontend
+      - backend
+  prometheus:
+    networks:
+      - backend
+    image: quay.io/prometheus/prometheus:v2.49.1
+    volumes:
+      - "./springboot-backend/prometheus.yml:/etc/prometheus/prometheus.yml"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --enable-feature=otlp-write-receiver
+    ports:
+      - "9090:9090"
+    container_name: prometheus
+
+volumes:
+  mysql_data:
+  mysql_config:
+networks:
+  backend:
+  frontend:
