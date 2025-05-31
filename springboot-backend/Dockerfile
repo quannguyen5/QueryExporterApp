@@ -55,5 +55,6 @@ FROM adoptopenjdk/openjdk8:ubi
 ARG version=2.0.0
 WORKDIR /app
 COPY --from=build /app/target/springboot-backend-*.jar /app.jar
+ADD --chmod=644 https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v$version/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 EXPOSE 8081
-CMD ["java","-Djava.security.egd=file:/dev/./urandom", "-jar", "/app.jar"]
+CMD ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-Djava.security.egd=file:/dev/./urandom", "-jar", "/app.jar"]
